@@ -1,17 +1,18 @@
-use lambda_http::{Body, Error, Request, Response};
+use lambda_http::{Body, Error, Request, RequestExt, Response};
 use std::env;
 
 use aws_config::BehaviorVersion;
 use aws_config;
-use aws_sdk_s3::Client;
+use aws_sdk_s3::{primitives::ByteStream, Client};
 
 // Main HTTP entrypoint: route between /health and /items.
 pub(crate) async fn function_handler(event: Request) -> Result<Response<Body>, Error> {
-    // Read the path so we can branch on /health vs /items.
+    // Read the path and HTTP method for simple routing.
     let path = event.uri().path();
+    let method = event.method().as_str();
 
     // /health endpoint – simple liveness check.
-    if path == "/health" {
+    if path == "/health" && method == "GET" {
         let resp = Response::builder()
             .status(200)
             .header("content-type", "text/plain")
@@ -20,19 +21,92 @@ pub(crate) async fn function_handler(event: Request) -> Result<Response<Body>, E
         return Ok(resp);
     }
 
-    // /items endpoint – list objects from our S3 bucket.
+    // /items endpoints – simple CRUD-style operations on S3.
     if path == "/items" {
         let bucket_name = env::var("BUCKET_NAME").map_err(Box::new)?;
-        let body_text = list_items(&bucket_name).await?;
 
-        let resp = Response::builder()
-            .status(200)
-            .header("content-type", "text/plain")
-            .body(body_text.into())
-            .map_err(Box::new)?;
-        return Ok(resp);
+        match method {
+            // GET /items -> list all keys in the bucket
+            "GET" => {
+                let body_text = list_items(&bucket_name).await?;
+
+                let resp = Response::builder()
+                    .status(200)
+                    .header("content-type", "text/plain")
+                    .body(body_text.into())
+                    .map_err(Box::new)?;
+                return Ok(resp);
+            }
+            // POST /items?key=... -> create/overwrite an object with the request body as content
+            "POST" => {
+                let key_param = event
+                    .query_string_parameters_ref()
+                    .and_then(|params| params.first("key"));
+
+                let key = match key_param {
+                    Some(k) => k,
+                    None => {
+                        let resp = Response::builder()
+                            .status(400)
+                            .header("content-type", "text/plain")
+                            .body("missing ?key=... for POST /items".into())
+                            .map_err(Box::new)?;
+                        return Ok(resp);
+                    }
+                };
+
+                let body_bytes = event.body().to_vec();
+                put_item(&bucket_name, key, body_bytes).await?;
+
+                let message = format!("created: {key}");
+                let resp = Response::builder()
+                    .status(201)
+                    .header("content-type", "text/plain")
+                    .body(message.into())
+                    .map_err(Box::new)?;
+                return Ok(resp);
+            }
+            // DELETE /items?key=... -> delete a single object by key
+            "DELETE" => {
+                let key_param = event
+                    .query_string_parameters_ref()
+                    .and_then(|params| params.first("key"));
+
+                let key = match key_param {
+                    Some(k) => k,
+                    None => {
+                        let resp = Response::builder()
+                            .status(400)
+                            .header("content-type", "text/plain")
+                            .body("missing ?key=... for DELETE /items".into())
+                            .map_err(Box::new)?;
+                        return Ok(resp);
+                    }
+                };
+
+                delete_item(&bucket_name, key).await?;
+
+                let message = format!("deleted: {key}");
+                let resp = Response::builder()
+                    .status(200)
+                    .header("content-type", "text/plain")
+                    .body(message.into())
+                    .map_err(Box::new)?;
+                return Ok(resp);
+            }
+            // Any other method on /items is not allowed.
+            _ => {
+                let resp = Response::builder()
+                    .status(405)
+                    .header("content-type", "text/plain")
+                    .body("method not allowed".into())
+                    .map_err(Box::new)?;
+                return Ok(resp);
+            }
+        }
     }
 
+    // Fallback 404 for unknown paths.
     let resp = Response::builder()
         .status(404)
         .header("content-type", "text/plain")
@@ -69,6 +143,43 @@ async fn list_items(bucket_name: &str) -> Result<String, Error> {
     } else {
         Ok(keys.join("\n"))
     }
+}
+
+// Helper that writes a new object (or overwrites an existing one) in S3.
+async fn put_item(bucket_name: &str, key: &str, body: Vec<u8>) -> Result<(), Error> {
+    let config = aws_config::defaults(BehaviorVersion::latest())
+        .load()
+        .await;
+    let client = Client::new(&config);
+
+    client
+        .put_object()
+        .bucket(bucket_name)
+        .key(key)
+        .body(ByteStream::from(body))
+        .send()
+        .await
+        .map_err(Box::new)?;
+
+    Ok(())
+}
+
+// Helper that deletes a single object from S3.
+async fn delete_item(bucket_name: &str, key: &str) -> Result<(), Error> {
+    let config = aws_config::defaults(BehaviorVersion::latest())
+        .load()
+        .await;
+    let client = Client::new(&config);
+
+    client
+        .delete_object()
+        .bucket(bucket_name)
+        .key(key)
+        .send()
+        .await
+        .map_err(Box::new)?;
+
+    Ok(())
 }
 
 #[cfg(test)]
