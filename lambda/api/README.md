@@ -6,6 +6,7 @@ api is a Rust project that implements an AWS Lambda function in Rust.
 
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Cargo Lambda](https://www.cargo-lambda.info/guide/installation.html)
+ - [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html#getting_started_prerequisites)
 
 ## Building
 
@@ -50,8 +51,29 @@ curl https://localhost:9000
 Read more about running the local server in [the Cargo Lambda documentation for the `watch` command](https://www.cargo-lambda.info/commands/watch.html).
 Read more about invoking the function in [the Cargo Lambda documentation for the `invoke` command](https://www.cargo-lambda.info/commands/invoke.html).
 
-## Deploying
+## Deploying (via CDK in this POC)
 
-To deploy the project, run `cargo lambda deploy`. This will create an IAM role and a Lambda function in your AWS account.
+In this project, the `api` function is deployed by the CDK stack in `../infra` using the `RustFunction` construct from `cargo-lambda-cdk`.
 
-Read more about deploying your lambda function in [the Cargo Lambda documentation](https://www.cargo-lambda.info/commands/deploy.html).
+From the repo root, you typically do:
+
+```bash
+cd infra
+npm install           # first time
+cdk bootstrap         # first time per account/region
+cdk deploy            # builds this Rust Lambda + deploys HttpApi + /health
+```
+
+After deploy, CDK prints an `api_url` output. You can then call the `/health` endpoint:
+
+```bash
+curl "$API_URL/health"
+```
+
+Expected response body:
+
+```text
+ok
+```
+
+You can still use `cargo lambda build` locally for testing, but the normal deployment flow for this repo is handled by CDK.
