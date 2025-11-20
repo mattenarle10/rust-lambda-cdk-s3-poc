@@ -14,8 +14,10 @@ Rust + AWS CDK + API Gateway + (later) AWS SDK for Rust and S3 CRUD.
 - Infrastructure-as-code with AWS CDK (TypeScript)
 - Built and packaged with Cargo Lambda
 - Simple `/health` endpoint (phase 1 – liveness)
-- S3-backed `/items` listing using AWS SDK for Rust (phase 2 – lists object keys)
-- Later: simple S3 create/delete operations via `/items`
+- S3-backed `/items` using AWS SDK for Rust:
+  - `GET /items` – list object keys
+  - `POST /items?key=...` – create/overwrite an object with the request body
+  - `DELETE /items?key=...` – delete a single object by key
 
 ## References
 
@@ -48,10 +50,19 @@ Assumes:
    curl "https://...execute-api.<region>.amazonaws.com/health"
    ```
 
-4. Call `/items` over HTTP (phase 2 – list S3 keys):
+4. Call `/items` over HTTP (S3-backed micro-endpoint):
 
    ```bash
+   # List items
    curl "https://...execute-api.<region>.amazonaws.com/items"
+
+   # Create or overwrite an object
+   curl -X POST "https://...execute-api.<region>.amazonaws.com/items?key=notes.txt" \
+     -H "content-type: text/plain" \
+     -d "hello from POST /items"
+
+   # Delete an object
+   curl -X DELETE "https://...execute-api.<region>.amazonaws.com/items?key=notes.txt"
    ```
 
-   Response is `no items` for an empty bucket, or newline-separated S3 object keys (for example, `gregoria.png`).
+   `GET` returns `no items` for an empty bucket, or newline-separated S3 object keys (for example, `gregoria.png`).
