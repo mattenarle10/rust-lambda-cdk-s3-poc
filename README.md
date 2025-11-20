@@ -6,6 +6,11 @@ Inspired by the recent GA of Rust on AWS Lambda and Rust performance benchmarks.
 
 Rust + AWS CDK + API Gateway + (later) AWS SDK for Rust and S3 CRUD.
 
+## Blog series
+
+- **Blog 1** – [`rust-lambda-poc`](../rust-lambda-poc): single Rust Lambda deployed with Cargo Lambda, listing S3 buckets.
+- **Blog 2** – this repo: CDK-managed HTTP API + Rust Lambda with `/health` and S3-backed `/items` (GET/POST/DELETE).
+
 ---
 
 ## Features (planned)

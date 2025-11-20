@@ -61,7 +61,7 @@ From the repo root, you typically do:
 cd infra
 npm install           # first time
 cdk bootstrap         # first time per account/region
-cdk deploy            # builds this Rust Lambda + deploys HttpApi + /health
+cdk deploy            # builds this Rust Lambda + deploys HttpApi + /health and /items
 ```
 
 After deploy, CDK prints an `api_url` output. You can then call the `/health` endpoint:
@@ -75,5 +75,12 @@ Expected response body:
 ```text
 ok
 ```
+
+### HTTP endpoints exposed by this Lambda
+
+- `GET /health` – liveness probe returning plain `"ok"`.
+- `GET /items` – list S3 object keys (or `no items` if bucket is empty).
+- `POST /items?key=...` – create/overwrite S3 object with the request body as content.
+- `DELETE /items?key=...` – delete a single S3 object by key.
 
 You can still use `cargo lambda build` locally for testing, but the normal deployment flow for this repo is handled by CDK.
