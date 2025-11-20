@@ -13,8 +13,9 @@ Rust + AWS CDK + API Gateway + (later) AWS SDK for Rust and S3 CRUD.
 - Rust Lambda function(s) behind API Gateway
 - Infrastructure-as-code with AWS CDK (TypeScript)
 - Built and packaged with Cargo Lambda
-- Simple `/health` endpoint (phase 1)
-- Later: S3 list/CRUD using AWS SDK for Rust on `/items`
+- Simple `/health` endpoint (phase 1 – liveness)
+- S3-backed `/items` listing using AWS SDK for Rust (phase 2 – lists object keys)
+- Later: simple S3 create/delete operations via `/items`
 
 ## References
 
@@ -47,3 +48,10 @@ Assumes:
    curl "https://...execute-api.<region>.amazonaws.com/health"
    ```
 
+4. Call `/items` over HTTP (phase 2 – list S3 keys):
+
+   ```bash
+   curl "https://...execute-api.<region>.amazonaws.com/items"
+   ```
+
+   Response is `no items` for an empty bucket, or newline-separated S3 object keys (for example, `gregoria.png`).
