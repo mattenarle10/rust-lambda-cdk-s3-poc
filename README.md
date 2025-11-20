@@ -2,6 +2,8 @@
 
 A small phase-2 POC building on `rust-lambda-poc`.
 
+Inspired by the recent GA of Rust on AWS Lambda and Rust performance benchmarks.
+
 Rust + AWS CDK + API Gateway + (later) AWS SDK for Rust and S3 CRUD.
 
 ---
