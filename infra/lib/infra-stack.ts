@@ -40,7 +40,7 @@ export class InfraStack extends cdk.Stack {
 
     httpApi.addRoutes({
       path: '/items',
-      methods: [HttpMethod.GET],
+      methods: [HttpMethod.GET, HttpMethod.POST, HttpMethod.DELETE],
       integration: itemsIntegration,
     });
 
